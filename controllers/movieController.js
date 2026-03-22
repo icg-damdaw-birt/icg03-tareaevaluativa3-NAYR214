@@ -1,105 +1,182 @@
 ﻿const prisma = require('../lib/prisma');
 
-// CRUD para películas: cada operación está protegida por autenticación
-// Solo se pueden ver/modificar las películas del usuario logueado
+// Helper
+const getUserId = (req) => req.user.id || req.user.userId;
 
-// GET /api/movies - Lista todas las películas del usuario actual
+// GET ALL
 exports.getAllMovies = async (req, res) => {
+  const userId = getUserId(req);
+
   try {
-    // req.user.userId viene del middleware de autenticación
     const movies = await prisma.movie.findMany({
-      where: { ownerId: req.user.userId },  // Solo las del usuario actual
-      orderBy: { createdAt: 'desc' },       // Más recientes primero
+      where: { ownerId: userId },
+      orderBy: { createdAt: 'desc' },
     });
 
-    res.json(movies);
-  } catch (error) {
-    res.status(500).json({ error: 'Error al obtener las películas' });
+    return res.json(movies);
+  } catch {
+    return res.status(500).json({ error: 'Error al obtener las películas' });
   }
 };
 
-// GET /api/movies/:id - Obtiene una película específica
+// GET BY ID
 exports.getMovieById = async (req, res) => {
   const { id } = req.params;
+  const userId = getUserId(req);
 
   try {
-    // Seguridad: solo puede ver sus propias películas
     const movie = await prisma.movie.findFirst({
-      where: { id, ownerId: req.user.userId },
+      where: { id, ownerId: userId },
     });
 
     if (!movie) {
       return res.status(404).json({ error: 'Película no encontrada' });
     }
 
-    res.json(movie);
-  } catch (error) {
-    res.status(500).json({ error: 'Error al obtener la película' });
+    return res.json(movie);
+  } catch {
+    return res.status(500).json({ error: 'Error al obtener la película' });
   }
 };
 
-// POST /api/movies - Crea una nueva película
+// CREATE
 exports.createMovie = async (req, res) => {
   const { title, director, year, posterUrl } = req.body;
+  const userId = getUserId(req);
+
+  if (!title) {
+    return res.status(400).json({ error: 'El título es obligatorio' });
+  }
 
   try {
-    // Crea la película y la asocia automáticamente al usuario logueado
     const movie = await prisma.movie.create({
-      data: {
-        title,
-        director,
-        year,
-        posterUrl,
-        ownerId: req.user.userId,  // Viene del token JWT
-      },
+      data: { title, director, year, posterUrl, ownerId: userId },
     });
 
-    res.status(201).json(movie);
-  } catch (error) {
-    res.status(400).json({ error: 'Datos inválidos' });
+    return res.status(201).json(movie);
+  } catch {
+    return res.status(400).json({ error: 'Datos inválidos' });
   }
 };
 
-// PUT /api/movies/:id - Actualiza una película existente
+// UPDATE
 exports.updateMovie = async (req, res) => {
   const { id } = req.params;
+  const userId = getUserId(req);
   const { title, director, year, posterUrl } = req.body;
 
   try {
-    // updateMany con where: solo actualiza si la película pertenece al usuario
-    const movie = await prisma.movie.updateMany({
-      where: { id, ownerId: req.user.userId },
+    const result = await prisma.movie.updateMany({
+      where: { id, ownerId: userId },
       data: { title, director, year, posterUrl },
     });
 
-    if (movie.count === 0) {
+    if (result.count === 0) {
       return res.status(404).json({ error: 'Película no encontrada' });
     }
 
-    const updatedMovie = await prisma.movie.findUnique({ where: { id } });
+    const updatedMovie = await prisma.movie.findUnique({
+      where: { id },
+    });
 
-    res.json(updatedMovie);
-  } catch (error) {
-    res.status(400).json({ error: 'No se pudo actualizar la película' });
+    return res.json(updatedMovie);
+  } catch {
+    return res.status(400).json({ error: 'No se pudo actualizar la película' });
   }
 };
 
-// DELETE /api/movies/:id - Elimina una película
+// DELETE
 exports.deleteMovie = async (req, res) => {
   const { id } = req.params;
+  const userId = getUserId(req);
 
   try {
-    // deleteMany con where: solo elimina si la película pertenece al usuario
-    const movie = await prisma.movie.deleteMany({
-      where: { id, ownerId: req.user.userId },
+    const result = await prisma.movie.deleteMany({
+      where: { id, ownerId: userId },
     });
 
-    if (movie.count === 0) {
+    if (result.count === 0) {
       return res.status(404).json({ error: 'Película no encontrada' });
     }
 
-    res.status(204).send();
-  } catch (error) {
-    res.status(500).json({ error: 'No se pudo eliminar la película' });
+    return res.status(204).send();
+  } catch {
+    return res.status(500).json({ error: 'No se pudo eliminar la película' });
+  }
+};
+
+// FAVORITE
+exports.toggleFavorite = async (req, res) => {
+  const { id } = req.params;
+  const userId = getUserId(req);
+
+  try {
+    const movie = await prisma.movie.findFirst({
+      where: { id, ownerId: userId },
+    });
+
+    if (!movie) {
+      return res.status(404).json({ error: 'Película no encontrada' });
+    }
+
+    const updatedMovie = await prisma.movie.update({
+      where: { id },
+      data: { isFavorite: !movie.isFavorite },
+    });
+
+    return res.json(updatedMovie);
+  } catch {
+    return res.status(500).json({ error: 'Error al cambiar favorito' });
+  }
+};
+
+// ⭐ RATING (CORRECTO)
+exports.updateRating = async (req, res) => {
+  const { id } = req.params;
+  const { rating } = req.body;
+  const userId = getUserId(req);
+
+  if (
+    rating === undefined ||
+    typeof rating !== 'number' ||
+    rating < 0 ||
+    rating > 5
+  ) {
+    return res.status(400).json({ error: 'Rating debe estar entre 0 y 5' });
+  }
+
+  try {
+    const movie = await prisma.movie.findFirst({
+      where: { id, ownerId: userId },
+    });
+
+    if (!movie) {
+      return res.status(404).json({ error: 'Película no encontrada' });
+    }
+
+    const updatedMovie = await prisma.movie.update({
+      where: { id },
+      data: { rating },
+    });
+
+    return res.json(updatedMovie);
+  } catch {
+    return res.status(500).json({ error: 'Error al actualizar rating' });
+  }
+};
+
+// FAVORITES
+exports.getFavoriteMovies = async (req, res) => {
+  const userId = getUserId(req);
+
+  try {
+    const favorites = await prisma.movie.findMany({
+      where: { ownerId: userId, isFavorite: true },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    return res.json(favorites);
+  } catch {
+    return res.status(500).json({ error: 'Error al obtener favoritos' });
   }
 };
