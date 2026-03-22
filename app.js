@@ -1,12 +1,15 @@
+require('dotenv').config();
+
 const express = require('express');
 const app = express();
 
-const movieRoutes = require('./routes/movieRoutes');
-const authRoutes = require('./routes/authRoutes');
-
 app.use(express.json());
 
-app.use('/api/movies', movieRoutes);
+// Rutas
+const authRoutes = require('./routes/authRoutes');
+const movieRoutes = require('./routes/movieRoutes');
+
 app.use('/api/auth', authRoutes);
+app.use('/api/movies', movieRoutes);
 
 module.exports = app;

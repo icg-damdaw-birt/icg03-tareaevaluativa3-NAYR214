@@ -1,19 +1,22 @@
 ﻿const express = require('express');
 const router = express.Router();
+
 const authMiddleware = require('../middleware/authMiddleware');
 const movieController = require('../controllers/movieController');
 
-router.get('/', authMiddleware, movieController.getAllMovies);
-router.get('/favorites', authMiddleware, movieController.getFavoriteMovies);
-router.get('/:id', authMiddleware, movieController.getMovieById);
+// TODAS protegidas
+router.use(authMiddleware);
 
-router.post('/', authMiddleware, movieController.createMovie);
-router.put('/:id', authMiddleware, movieController.updateMovie);
-router.delete('/:id', authMiddleware, movieController.deleteMovie);
+// CRUD
+router.get('/', movieController.getAllMovies);
+router.get('/favorites', movieController.getFavoriteMovies);
+router.get('/:id', movieController.getMovieById);
+router.post('/', movieController.createMovie);
+router.put('/:id', movieController.updateMovie);
+router.delete('/:id', movieController.deleteMovie);
 
-
-router.patch('/:id/rating', authMiddleware, movieController.updateRating);
-
-router.patch('/:id/favorite', authMiddleware, movieController.toggleFavorite);
+// Extras
+router.patch('/:id/favorite', movieController.toggleFavorite);
+router.patch('/:id/rating', movieController.updateRating);
 
 module.exports = router;

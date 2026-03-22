@@ -3,7 +3,7 @@
 // Helper
 const getUserId = (req) => req.user.id || req.user.userId;
 
-// GET /api/movies
+// GET ALL
 exports.getAllMovies = async (req, res) => {
   const userId = getUserId(req);
 
@@ -14,12 +14,12 @@ exports.getAllMovies = async (req, res) => {
     });
 
     return res.json(movies);
-  } catch (error) {
+  } catch {
     return res.status(500).json({ error: 'Error al obtener las películas' });
   }
 };
 
-// GET /api/movies/:id
+// GET BY ID
 exports.getMovieById = async (req, res) => {
   const { id } = req.params;
   const userId = getUserId(req);
@@ -34,12 +34,12 @@ exports.getMovieById = async (req, res) => {
     }
 
     return res.json(movie);
-  } catch (error) {
+  } catch {
     return res.status(500).json({ error: 'Error al obtener la película' });
   }
 };
 
-// POST /api/movies
+// CREATE
 exports.createMovie = async (req, res) => {
   const { title, director, year, posterUrl } = req.body;
   const userId = getUserId(req);
@@ -54,12 +54,12 @@ exports.createMovie = async (req, res) => {
     });
 
     return res.status(201).json(movie);
-  } catch (error) {
+  } catch {
     return res.status(400).json({ error: 'Datos inválidos' });
   }
 };
 
-// PUT /api/movies/:id
+// UPDATE
 exports.updateMovie = async (req, res) => {
   const { id } = req.params;
   const userId = getUserId(req);
@@ -80,12 +80,12 @@ exports.updateMovie = async (req, res) => {
     });
 
     return res.json(updatedMovie);
-  } catch (error) {
+  } catch {
     return res.status(400).json({ error: 'No se pudo actualizar la película' });
   }
 };
 
-// DELETE /api/movies/:id
+// DELETE
 exports.deleteMovie = async (req, res) => {
   const { id } = req.params;
   const userId = getUserId(req);
@@ -100,12 +100,12 @@ exports.deleteMovie = async (req, res) => {
     }
 
     return res.status(204).send();
-  } catch (error) {
+  } catch {
     return res.status(500).json({ error: 'No se pudo eliminar la película' });
   }
 };
 
-// PATCH /api/movies/:id/favorite
+// FAVORITE
 exports.toggleFavorite = async (req, res) => {
   const { id } = req.params;
   const userId = getUserId(req);
@@ -121,24 +121,21 @@ exports.toggleFavorite = async (req, res) => {
 
     const updatedMovie = await prisma.movie.update({
       where: { id },
-      data: {
-        isFavorite: !movie.isFavorite,
-      },
+      data: { isFavorite: !movie.isFavorite },
     });
 
-    return res.status(200).json(updatedMovie);
-  } catch (error) {
+    return res.json(updatedMovie);
+  } catch {
     return res.status(500).json({ error: 'Error al cambiar favorito' });
   }
 };
 
-
+// ⭐ RATING (CORRECTO)
 exports.updateRating = async (req, res) => {
   const { id } = req.params;
   const { rating } = req.body;
   const userId = getUserId(req);
 
-  //  VALIDACIÓN
   if (
     rating === undefined ||
     typeof rating !== 'number' ||
@@ -162,27 +159,24 @@ exports.updateRating = async (req, res) => {
       data: { rating },
     });
 
-    return res.status(200).json(updatedMovie);
-  } catch (error) {
+    return res.json(updatedMovie);
+  } catch {
     return res.status(500).json({ error: 'Error al actualizar rating' });
   }
 };
 
-// GET /api/movies/favorites
+// FAVORITES
 exports.getFavoriteMovies = async (req, res) => {
   const userId = getUserId(req);
 
   try {
     const favorites = await prisma.movie.findMany({
-      where: {
-        ownerId: userId,
-        isFavorite: true,
-      },
+      where: { ownerId: userId, isFavorite: true },
       orderBy: { createdAt: 'desc' },
     });
 
     return res.json(favorites);
-  } catch (error) {
+  } catch {
     return res.status(500).json({ error: 'Error al obtener favoritos' });
   }
 };
